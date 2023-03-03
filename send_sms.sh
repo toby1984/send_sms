@@ -12,6 +12,18 @@
 # $2 - SUBJECT
 # $3 - BODY
 
+# Base directory
+BASEDIR="/home/zabbix"
+
+# send at most 1 SMS every 60 minutes
+RATE_LIMIT_SECONDS="1800" 
+
+# Debug/Dry-run mode is turned on when flag is != 0
+DEBUG="0"
+
+# SMS gateway API key
+API_KEY=""
+
 if [ "$#" -lt "2" ] ; then
   echo "ERROR: Invalid command.line"
   echo "Usage: <intl. subscriber number> <message>"
@@ -19,15 +31,21 @@ if [ "$#" -lt "2" ] ; then
 fi
 
 TO="$1"
-FROM="zabbix"
+FROM=""
 export MESSAGE="$2"
 
 # truncate to fit into one SMS
 export PREFIX=""
 MESSAGE=`echo "${PREFIX}${MESSAGE}" | /usr/bin/sed 's/\(.\{155\}\).*/\1.../'`
 
-# SMS gateway API key
-API_KEY=""
+# Zabbix message types will be invoked in parallel when
+# multiple triggers using the message type fire around the same time
+# 
+export LOCKFILE="${BASEDIR}/.${TO}.sms_lock"
+DROP_COUNTER_FILE="${BASEDIR}/dropped_sms.${TO}"
+
+# File to store timestamp of last invocation
+TS_FILE="${BASEDIR}/last_sms_timestamp.${TO}"
 
 # URL-encode parameters
 if [ -z "$TO" -o -z "$FROM" -o -z "$MESSAGE" -o -z "$API_KEY" ] ; then
@@ -38,25 +56,6 @@ fi
 MESSAGE=`/usr/bin/urlencode "${MESSAGE}"`
 FROM=`/usr/bin/urlencode "${FROM}"`
 TO=`/usr/bin/urlencode "${TO}"`
-
-# Base directory
-BASEDIR="/home/zabbix"
-
-DROP_COUNTER_FILE="${BASEDIR}/dropped_sms"
-
-# send at most 1 SMS every 60 minutes
-RATE_LIMIT_SECONDS="1800" 
-
-# File to store timestamp of last invocation
-TS_FILE="${BASEDIR}/last_sms_timestamp"
-
-# Debug/Dry-run mode is turned on when flag is != 0
-DEBUG="0"
-
-# Zabbix message types will be invoked in parallel when
-# multiple triggers using the message type fire around the same time
-# 
-export LOCKFILE="${BASEDIR}/.sms_lock"
 
 function releaseLock() {
     rm -f "$LOCKFILE"
@@ -76,7 +75,7 @@ until ( set -o noclobber; echo "$$" > "$LOCKFILE" ) 2>/dev/null ; do
   logDebug "Waiting for lock file...retries left: $LOCK_COUNTER"
   LOCK_COUNTER=$(( $LOCK_COUNTER - 1 ))
   if [ "$LOCK_COUNTER" == "0" ] ; then
-    echo "ERROR: Failed to acquire atomic lock too many times, giving up."
+    echo "ERROR: Failed to acquire atomic lock ${LOCKFILE} too many times, giving up."
     exit 1
   fi
   sleep 1

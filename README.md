@@ -11,11 +11,18 @@ I'm german so need to send SMS to a german subscriber number - hence the choice.
 
 # Usage
 
-- Copy the script to a suitable location on your Zabbix server (I manually created /home/zabbix for that). Make sure to assign the right permissions so that the script is readable and executable by the user running your Zabbix instance.
+- Find out where your Zabbix installation expects custom scripts by looking for the 'AlertScriptsPath' configuration parameter in /etc/zabbix/zabbix_server.conf
+  Since the directory is part of the installation and at least on Ubuntu defaults to something in /usr/lib, I prefer to instead manually create a /home/zabbix folder owned by the
+  zabbix user (with appropriate permissions ofc) and symlink the script
+- Copy the script to your server
+  Make sure to assign the right permissions so that the script is readable and executable by the user running your Zabbix instance
 - Edit the script and set the following parameters:
   - API_KEY (mandatory)
   - FROM (optional, defaults to "zabbix")
   - PREFIX (optional prefix for each message you send)
+  - RATE_LIMIT_SECONDS (defaults to 1 message per recipient every 60 minutes)
 - Configure a new media-type on your Zabbix
+
+  ![Zabbix Configuration](https://github.com/toby1984/send_sms/blob/master/zabbix_config.png?raw=true)
 - Test the media type
 - Assign it to users as you see fit using the subscriber number in INTERNATIONAL FORMAT (SMS gateway requirement) as "To"
